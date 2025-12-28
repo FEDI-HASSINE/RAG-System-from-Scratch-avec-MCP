@@ -1,0 +1,178 @@
+{
+  "dimension": 384,
+  "index_type": "flat",
+  "metric": "l2",
+  "model_name": "all-MiniLM-L6-v2",
+  "created_at": "2025-12-28T20:23:00.585786",
+  "total_vectors": 21,
+  "chunks": [
+    {
+      "chunk_id": "notes_000",
+      "source": "notes.txt",
+      "text": "Technical Notes - System Architecture Last updated: December 2024",
+      "tokens": 11
+    },
+    {
+      "chunk_id": "notes_001",
+      "source": "notes.txt",
+      "text": "This document describes the core architecture of our distributed system. The system is designed to handle high-throughput data processing with fault tolerance and horizontal scalability. Core Components:",
+      "tokens": 35,
+      "section": "Author: Engineering Team"
+    },
+    {
+      "chunk_id": "notes_002",
+      "source": "notes.txt",
+      "text": "Handles all incoming HTTP/HTTPS requests Performs authentication and rate limiting Routes requests to appropriate microservices Implements circuit breaker pattern",
+      "tokens": 24,
+      "section": "API Gateway"
+    },
+    {
+      "chunk_id": "notes_003",
+      "source": "notes.txt",
+      "text": "Apache Kafka for event streaming Ensures reliable message delivery Enables asynchronous processing Supports replay of events for debugging",
+      "tokens": 23,
+      "section": "Message Queue"
+    },
+    {
+      "chunk_id": "notes_004",
+      "source": "notes.txt",
+      "text": "Stream processing with Apache Flink Batch processing with Apache Spark Real-time analytics pipeline Machine learning inference endpoints",
+      "tokens": 22,
+      "section": "Data Processing Layer"
+    },
+    {
+      "chunk_id": "notes_005",
+      "source": "notes.txt",
+      "text": "PostgreSQL for transactional data MongoDB for document storage Redis for caching and sessions S3-compatible object storage for files",
+      "tokens": 23,
+      "section": "Storage Systems"
+    },
+    {
+      "chunk_id": "notes_006",
+      "source": "notes.txt",
+      "text": "All services are containerized using Docker and orchestrated with Kubernetes. The production environment consists of: 3 availability zones for redundancy Auto-scaling based on CPU and memory metrics Blue-green deployment for zero-downtime updates Centralized logging with ELK stack Metrics collection with Prometheus and Grafana Security Considerations Security is implemented at multiple layers: Network Level: All traffic encrypted with TLS 1.3 Network policies restrict pod-to-pod communication Web Application Firewall (WAF) for edge protection Application Level: JWT-based authentication Role-based access control (RBAC) Input validation and sanitization SQL injection prevention Data Level: Encryption at rest for all databases Data masking for PII in logs Regular backup with point-in-time recovery Key rotation every 90 days The system is designed to meet the following SLAs: API response time: p95 < 100ms Message processing latency: p99 < 500ms System availability: 99.9% Data durability: 99.999999999% Monitoring and Alerting Comprehensive monitoring is implemented: Health checks every 10 seconds Automated alerting via PagerDuty Dashboard with key metrics Weekly performance reviews Current system limitations to be addressed: Maximum file upload size: 100MB Rate limit: 1000 requests per minute per user Batch job maximum runtime: 4 hours Cross-region replication lag: up to 5 seconds Planned enhancements for next quarter:",
+      "tokens": 256,
+      "section": "Deployment Architecture"
+    },
+    {
+      "chunk_id": "notes_007",
+      "source": "notes.txt",
+      "text": "Contact engineering@example.com for questions.",
+      "tokens": 5,
+      "section": "Real-time collaboration features"
+    },
+    {
+      "chunk_id": "finance_report_000",
+      "source": "finance_report.txt",
+      "text": "This report presents the financial performance for the fourth quarter of 2024. Overall, the company has demonstrated strong growth across all major business segments, with revenue exceeding projections by 12%. Key highlights for Q4 2024: Total revenue: $45.2 million (up 18% year-over-year) Net income: $8.7 million (up 25% year-over-year) Operating margin: 19.3% Customer acquisition cost reduced by 15%",
+      "tokens": 75,
+      "section": "EXECUTIVE SUMMARY"
+    },
+    {
+      "chunk_id": "finance_report_001",
+      "source": "finance_report.txt",
+      "text": "Product Sales: $28.5 million The product division continues to be our primary revenue driver. New product launches in October contributed significantly to this growth, with the flagship product line accounting for 60% of product revenue. Service Revenue: $12.3 million Our service offerings showed consistent growth, driven primarily by enterprise support contracts and consulting engagements. Customer retention rate for service contracts remained high at 94%. Subscription Revenue: $4.4 million The subscription model introduced in Q2 has gained strong traction. Monthly recurring revenue (MRR) grew from $1.1 million in Q1 to $1.5 million by end of Q4.",
+      "tokens": 123,
+      "section": "REVENUE BREAKDOWN"
+    },
+    {
+      "chunk_id": "finance_report_002",
+      "source": "finance_report.txt",
+      "text": "Research and Development: $6.2 million Investment in R&D increased by 20% compared to the previous quarter. This investment focuses on next-generation products and platform improvements scheduled for release in 2025. Sales and Marketing: $8.5 million Marketing spend was optimized to focus on high-converting channels. Digital marketing now accounts for 75% of total marketing budget with improved ROI metrics. General and Administrative: $4.1 million G&A costs remained stable with slight increases due to expanded office space and additional compliance requirements.",
+      "tokens": 102,
+      "section": "OPERATIONAL EXPENSES"
+    },
+    {
+      "chunk_id": "finance_report_003",
+      "source": "finance_report.txt",
+      "text": "Total Assets: $125.6 million Cash and equivalents: $42.3 million Accounts receivable: $18.7 million Property and equipment: $15.2 million Total Liabilities: $38.4 million Accounts payable: $7.2 million Deferred revenue: $12.8 million Long-term debt: $15.0 million Shareholders Equity: $87.2 million",
+      "tokens": 49,
+      "section": "BALANCE SHEET HIGHLIGHTS"
+    },
+    {
+      "chunk_id": "finance_report_004",
+      "source": "finance_report.txt",
+      "text": "We project continued growth in 2025 with the following targets: Revenue growth of 20-25% Operating margin improvement to 22% Launch of 3 new product lines Expansion into 5 new geographic markets Key initiatives for the coming year:",
+      "tokens": 48,
+      "section": "OUTLOOK FOR 2025"
+    },
+    {
+      "chunk_id": "finance_report_005",
+      "source": "finance_report.txt",
+      "text": "Strategic acquisitions in complementary technology areas",
+      "tokens": 7,
+      "section": "Platform modernization to improve scalability"
+    },
+    {
+      "chunk_id": "finance_report_006",
+      "source": "finance_report.txt",
+      "text": "Management has identified the following key risk factors: Increasing competition in core markets Potential economic slowdown affecting enterprise spending Supply chain disruptions for hardware components Regulatory changes in key operating regions",
+      "tokens": 40,
+      "section": "RISK FACTORS"
+    },
+    {
+      "chunk_id": "finance_report_007",
+      "source": "finance_report.txt",
+      "text": "Q4 2024 represents a strong finish to a successful year. The company is well-positioned for continued growth, with a solid balance sheet, diverse revenue streams, and strategic investments in future capabilities. For questions regarding this report, contact: Investor Relations: investors@example.com",
+      "tokens": 52,
+      "section": "CONCLUSION"
+    },
+    {
+      "chunk_id": "privacy_policy_000",
+      "source": "privacy_policy.md",
+      "text": "This privacy policy explains how we collect, use, and protect your personal information when you use our services. We are committed to ensuring that your privacy is protected and that all data handling complies with applicable regulations.",
+      "tokens": 48
+    },
+    {
+      "chunk_id": "privacy_policy_001",
+      "source": "privacy_policy.md",
+      "text": "We collect the following types of personal information: Account Information: Name, email address, phone number Usage Data: How you interact with our services, pages visited, features used Device Information: Browser type, operating system, IP address Payment Information: Billing address, payment method details (encrypted) Data is collected through: Direct input when you create an account or fill out forms Automatic collection through cookies and similar technologies Third-party services that you connect to your account",
+      "tokens": 94,
+      "section": "User Data Collection"
+    },
+    {
+      "chunk_id": "privacy_policy_002",
+      "source": "privacy_policy.md",
+      "text": "We implement robust security measures to protect your data: All data is encrypted in transit using TLS 1.3 Personal information is stored in encrypted databases Access to user data is restricted to authorized personnel only Regular security audits are conducted by independent firms Multi-factor authentication is required for all administrative access Under the General Data Protection Regulation (GDPR), you have the following rights: You can request a copy of all personal data we hold about you. We will provide this within 30 days of your request.",
+      "tokens": 111,
+      "section": "Data Protection Measures"
+    },
+    {
+      "chunk_id": "privacy_policy_003",
+      "source": "privacy_policy.md",
+      "text": "If any information we hold about you is incorrect, you can request that we correct it. Simply contact our support team with the correct information. Also known as the \"right to be forgotten\", you can request that we delete all your personal data. Note that some information may be retained for legal compliance purposes.",
+      "tokens": 70,
+      "section": "Right to Rectification"
+    },
+    {
+      "chunk_id": "privacy_policy_004",
+      "source": "privacy_policy.md",
+      "text": "You can request your data in a machine-readable format that can be transferred to another service provider. We retain your personal data only for as long as necessary: Active account data: Retained while your account is active Transaction records: Retained for 7 years for legal compliance Usage analytics: Anonymized after 24 months Marketing preferences: Retained until you opt out For any privacy-related questions or to exercise your rights, contact our Data Protection Officer: Email: privacy@example.com Address: 123 Privacy Street, Data City, DC 12345 Phone: +1 (555) 123-4567 This policy was last updated on January 1, 2024.",
+      "tokens": 124,
+      "section": "Right to Data Portability"
+    }
+  ],
+  "id_to_position": {
+    "notes_000": 0,
+    "notes_001": 1,
+    "notes_002": 2,
+    "notes_003": 3,
+    "notes_004": 4,
+    "notes_005": 5,
+    "notes_006": 6,
+    "notes_007": 7,
+    "finance_report_000": 8,
+    "finance_report_001": 9,
+    "finance_report_002": 10,
+    "finance_report_003": 11,
+    "finance_report_004": 12,
+    "finance_report_005": 13,
+    "finance_report_006": 14,
+    "finance_report_007": 15,
+    "privacy_policy_000": 16,
+    "privacy_policy_001": 17,
+    "privacy_policy_002": 18,
+    "privacy_policy_003": 19,
+    "privacy_policy_004": 20
+  }
+}

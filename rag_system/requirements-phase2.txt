@@ -1,0 +1,15 @@
+# Phase 2: Embeddings Requirements
+
+## Core Dependencies
+sentence-transformers>=2.2.0  # Local embedding models (HuggingFace)
+faiss-cpu>=1.7.4              # Vector search index
+numpy>=1.24.0                 # Numerical operations
+
+## Optional Dependencies
+# openai>=1.0.0               # OpenAI embeddings API (cloud, paid)
+# torch>=2.0.0                # PyTorch (installed with sentence-transformers)
+
+## From Phase 1
+pypdf>=4.0.0
+markdown-it-py>=3.0.0
+beautifulsoup4>=4.12.0
