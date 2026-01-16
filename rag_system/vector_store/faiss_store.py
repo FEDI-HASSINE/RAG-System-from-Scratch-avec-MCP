@@ -13,7 +13,7 @@ import json
 import pickle
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -140,11 +140,18 @@ class FAISSVectorStore:
         if self.metric == "cosine":
             vectors = self._normalize(vectors)
         
+        # Ensure C-contiguous for FAISS
+        vectors = np.ascontiguousarray(vectors, dtype=np.float32)
+        
         # Get current position
         start_position = len(self.metadata)
         
         # Add to FAISS index
-        self.index.add(vectors)
+        if self.index_type == "ivf" and self.index.ntotal == 0:
+            # IVF index needs training before adding vectors
+            train_vectors = np.ascontiguousarray(vectors[:min(len(vectors), 256)], dtype=np.float32)
+            self.index.train(train_vectors)  # type: ignore
+        self.index.add(vectors.astype(np.float32))  # type: ignore
         
         # Store metadata and build mappings
         chunk_ids = []
@@ -164,7 +171,7 @@ class FAISSVectorStore:
     def search(self, 
                query_vector: np.ndarray, 
                k: int = 5,
-               filter_fn: callable = None) -> List[SearchResult]:
+               filter_fn: Optional[Callable] = None) -> List[SearchResult]:
         """
         Search for similar vectors.
         
@@ -188,7 +195,7 @@ class FAISSVectorStore:
         search_k = k * 3 if filter_fn else k
         search_k = min(search_k, self.index.ntotal)
         
-        distances, indices = self.index.search(query, search_k)
+        distances, indices = self.index.search(query, search_k)  # type: ignore
         
         # Build results
         results = []
@@ -351,7 +358,7 @@ class VectorStoreManager:
         if embedding_service:
             self.embedding_service = embedding_service
         else:
-            from .embedding_models import get_embedding_service
+            from rag_system.embeddings.embedding_models import get_embedding_service
             self.embedding_service = get_embedding_service()
         
         # Try to load existing store or create new

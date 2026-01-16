@@ -197,6 +197,11 @@ class RetrieveChunksTool:
             
             self._vector_store = FAISSVectorStore.load(str(self.vector_store_path))
         return self._vector_store
+
+    def reload_vector_store(self):
+        """Force reload of the vector store from disk."""
+        self._vector_store = None
+        print("🔄 Vector store cached instance cleared. Will reload on next request.")
     
     def execute(self, params: Dict[str, Any]) -> RetrieveChunksResponse:
         """
@@ -208,6 +213,18 @@ class RetrieveChunksTool:
         Returns:
             RetrieveChunksResponse with retrieved chunks
         """
+        # Check for reload request
+        if params.get("reload"):
+            self.reload_vector_store()
+            # If only loading was requested (no query), return success
+            if not params.get("query"):
+                return RetrieveChunksResponse(
+                    success=True,
+                    query="[reload]",
+                    chunks=[],
+                    total_found=0
+                )
+
         # Validate input
         query = params.get("query")
         if not query:

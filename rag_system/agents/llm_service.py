@@ -108,10 +108,18 @@ class OpenAIProvider(BaseLLMProvider):
         
         try:
             from openai import OpenAI
-            self.client = OpenAI(api_key=config.api_key)
+            self.client = OpenAI(
+                api_key=config.api_key,
+                base_url=config.base_url  # Add support for custom base_url (OpenRouter, etc.)
+            )
             self._available = True
-        except ImportError:
-            self.logger.warning("OpenAI package not installed. Install with: pip install openai")
+        except ImportError as e:
+            import sys
+            # Print critical error info to stderr so it shows up in logs clearly
+            print(f"\n[CRITICAL] Error importing 'openai' package: {e}", file=sys.stderr)
+            print(f"[CRITICAL] Current Python executable: {sys.executable}", file=sys.stderr)
+            print(f"[CRITICAL] Ensure you ran 'pip install openai' in this environment.\n", file=sys.stderr)
+            self.logger.warning(f"OpenAI package not installed: {e}")
             self._available = False
         except Exception as e:
             self.logger.warning(f"Failed to initialize OpenAI client: {e}")
@@ -143,12 +151,21 @@ class OpenAIProvider(BaseLLMProvider):
         temperature = kwargs.get("temperature", self.config.temperature)
         max_tokens = kwargs.get("max_tokens", self.config.max_tokens)
         
+        # OpenRouter specific headers
+        extra_headers = {}
+        if "openrouter.ai" in str(self.config.base_url):
+            extra_headers = {
+                "HTTP-Referer": "https://github.com/FEDI-HASSINE/RAG-System-from-Scratch-avec-MCP",
+                "X-Title": "RAG System from Scratch"
+            }
+
         try:
             response = self.client.chat.completions.create(
                 model=model,
                 messages=[m.to_dict() for m in messages],
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                extra_headers=extra_headers
             )
             
             choice = response.choices[0]

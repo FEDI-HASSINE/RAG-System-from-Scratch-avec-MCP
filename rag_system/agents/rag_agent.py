@@ -58,6 +58,7 @@ class RAGConfig:
     # LLM settings
     llm_provider: LLMProvider = LLMProvider.OPENAI
     llm_model: str = "gpt-4o-mini"
+    llm_base_url: Optional[str] = None  # To support OpenRouter/Ollama
     temperature: float = 0.1
     max_tokens: int = 1024
     
@@ -168,6 +169,7 @@ class RAGAgent:
             config = LLMConfig(
                 provider=self.config.llm_provider,
                 model=self.config.llm_model,
+                base_url=self.config.llm_base_url, # Pass custom base_url
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens
             )
@@ -450,6 +452,19 @@ class RAGAgent:
             "mcp_server": mcp.health_check(),
             "llm_service": llm.is_available
         }
+
+    def reload_knowledge_base(self) -> bool:
+        """Trigger reload of the vector store index."""
+        try:
+            # We call retrieve_chunks with reload=True
+            result = self._get_mcp_client().call(
+                tool="retrieve_chunks", 
+                params={"reload": True}
+            )
+            return result.success
+        except Exception as e:
+            self.logger.error(f"Failed to reload knowledge base: {e}")
+            return False
     
     def get_stats(self) -> Dict:
         """Get agent statistics."""
