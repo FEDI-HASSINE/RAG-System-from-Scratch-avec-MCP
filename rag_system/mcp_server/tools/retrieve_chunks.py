@@ -2,7 +2,7 @@
 MCP Tool: retrieve_chunks
 
 Retrieves the most relevant chunks for a query using semantic search.
-Uses the FAISS vector store created in Phase 2.
+Uses the configured vector store (FAISS by default, Pinecone optional).
 """
 
 import sys
@@ -150,7 +150,8 @@ class RetrieveChunksTool:
     def __init__(self, 
                  vector_store_path: str = None,
                  embedding_model_type: str = "sentence-transformers",
-                 embedding_model_name: str = None):
+                 embedding_model_name: str = None,
+                 vector_backend: str = None):
         """
         Initialize the retrieve_chunks tool.
         
@@ -161,6 +162,16 @@ class RetrieveChunksTool:
         """
         self.embedding_model_type = embedding_model_type
         self.embedding_model_name = embedding_model_name
+        
+        # Auto-select backend: use Pinecone if API key is set, otherwise FAISS
+        env_backend = os.getenv("VECTOR_STORE_BACKEND")
+        if env_backend:
+            self.vector_backend = env_backend.lower()
+        elif os.getenv("PINECONE_API_KEY"):
+            self.vector_backend = "pinecone"  # Auto-activate if key is present
+            print("🌲 Auto-selected Pinecone backend (PINECONE_API_KEY detected)")
+        else:
+            self.vector_backend = vector_backend.lower() if vector_backend else "faiss"
         
         # Determine vector store path
         if vector_store_path:
@@ -187,15 +198,25 @@ class RetrieveChunksTool:
     def _get_vector_store(self):
         """Lazy-load the vector store."""
         if self._vector_store is None:
-            from vector_store.faiss_store import FAISSVectorStore
-            
-            if not self.vector_store_path.exists():
-                raise FileNotFoundError(
-                    f"Vector store not found at {self.vector_store_path}. "
-                    "Run the indexing pipeline first."
+            # Ensure embedding service is loaded to get dimension if needed
+            embedding_service = self._get_embedding_service()
+
+            backend = self.vector_backend
+            if backend == "pinecone":
+                from vector_store.pinecone_store import PineconeVectorStore
+                self._vector_store = PineconeVectorStore.from_env(
+                    dimension=embedding_service.dimension,
+                    metric=os.getenv("VECTOR_STORE_METRIC", "cosine"),
                 )
-            
-            self._vector_store = FAISSVectorStore.load(str(self.vector_store_path))
+                self._vector_store.model_name = embedding_service.model_name
+            else:
+                from vector_store.faiss_store import FAISSVectorStore
+                if not self.vector_store_path.exists():
+                    raise FileNotFoundError(
+                        f"Vector store not found at {self.vector_store_path}. "
+                        "Run the indexing pipeline first."
+                    )
+                self._vector_store = FAISSVectorStore.load(str(self.vector_store_path))
         return self._vector_store
 
     def reload_vector_store(self):
@@ -256,8 +277,9 @@ class RetrieveChunksTool:
             embedding_service = self._get_embedding_service()
             vector_store = self._get_vector_store()
             
-            # Build filter function if needed
+            # Build filters
             filter_fn = None
+            pinecone_filter = None
             if source_filter or section_filter:
                 def filter_fn(meta):
                     if source_filter and meta.get("source", "") != source_filter:
@@ -265,13 +287,24 @@ class RetrieveChunksTool:
                     if section_filter and section_filter.lower() not in meta.get("section", "").lower():
                         return False
                     return True
+                if self.vector_backend == "pinecone" and source_filter:
+                    pinecone_filter = {"source": {"$eq": source_filter}}
             
             # Search
-            results = vector_store.search_by_text(
-                query_text=query,
-                embedding_service=embedding_service,
-                k=top_k * 2 if filter_fn else top_k  # Get more if filtering
-            )
+            if self.vector_backend == "pinecone":
+                query_vector = embedding_service.embed(query)
+                results = vector_store.search(
+                    query_vector=query_vector,
+                    k=top_k * 2 if filter_fn else top_k,
+                    filter_fn=filter_fn,
+                    filter_dict=pinecone_filter,
+                )
+            else:
+                results = vector_store.search_by_text(
+                    query_text=query,
+                    embedding_service=embedding_service,
+                    k=top_k * 2 if filter_fn else top_k  # Get more if filtering
+                )
             
             # Apply filter if provided
             if filter_fn:
@@ -280,9 +313,14 @@ class RetrieveChunksTool:
                     "section": r.section
                 })][:top_k]
             
-            # Apply threshold if provided
+            # Apply threshold if provided (different semantics per backend)
             if threshold is not None:
-                results = [r for r in results if r.score <= threshold]
+                if self.vector_backend == "pinecone":
+                    # Pinecone returns similarity (higher is better)
+                    results = [r for r in results if r.score >= threshold]
+                else:
+                    # FAISS with L2/IP returns distance (lower is better for L2)
+                    results = [r for r in results if r.score <= threshold]
             
             # Convert to response format
             chunks = []

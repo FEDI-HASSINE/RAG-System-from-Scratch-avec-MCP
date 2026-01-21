@@ -56,6 +56,22 @@ def get_agent():
     return RAGAgent(config)
 
 
+@st.cache_data
+def get_available_sources():
+    """Return list of unique sources from chunks.json (if present)."""
+    chunks_path = os.path.join(RAG_SYSTEM_DIR, "data", "chunks.json")
+    if not os.path.exists(chunks_path):
+        return []
+    try:
+        import json
+        with open(chunks_path, "r", encoding="utf-8") as f:
+            chunks = json.load(f)
+        sources = {c.get("source") for c in chunks if c.get("source")}
+        return sorted(sources)
+    except Exception:
+        return []
+
+
 # ============================================================
 # Sidebar
 # ============================================================
@@ -92,6 +108,15 @@ with st.sidebar:
     st.subheader("⚙️ Options")
     top_k = st.slider("Chunks à afficher", 1, 10, 5)
     show_trace = st.checkbox("Voir raisonnement RAG", value=True)
+
+    # Source selection
+    available_sources = get_available_sources()
+    sources_selected = st.multiselect(
+        "Sources à utiliser",
+        options=available_sources,
+        default=available_sources,
+        help="Choisissez les documents à inclure. Si aucun n'est coché, tous seront utilisés."
+    )
 
     st.markdown("---")
     
@@ -179,6 +204,11 @@ question = st.text_input(
     key="question_input",
 )
 
+# Selected sources (fallback to all if none selected)
+selected_sources = locals().get("sources_selected", [])
+available_sources = locals().get("available_sources", [])
+active_sources = selected_sources if selected_sources else available_sources
+
 col_btn, col_clear = st.columns([1, 5])
 with col_btn:
     run_btn = st.button("▶️ Run RAG", type="primary", use_container_width=True)
@@ -198,13 +228,18 @@ if run_btn and question.strip():
     else:
         with st.spinner("🧠 RAG en cours..."):
             start = time.time()
-            response = agent.answer(question.strip(), include_trace=show_trace)
+            response = agent.answer(
+                question.strip(), 
+                source_filters=active_sources,
+                include_trace=show_trace
+            )
             elapsed = (time.time() - start) * 1000
 
         st.session_state["last_response"] = response
         st.session_state["last_question"] = question.strip()
         st.session_state["last_elapsed"] = elapsed
         st.session_state["last_top_k"] = top_k
+        st.session_state["last_sources"] = active_sources
 
 
 # ============================================================
@@ -216,12 +251,18 @@ if "last_response" in st.session_state:
     question_used = st.session_state.get("last_question", "")
     elapsed = st.session_state.get("last_elapsed", 0)
     top_k_used = st.session_state.get("last_top_k", 5)
+    sources_used = st.session_state.get("last_sources", active_sources)
 
     st.markdown("---")
 
     # Chunks récupérés
     with st.expander("🔍 Chunks récupérés", expanded=True):
-        chunks = agent.retrieve_and_rerank(question_used, initial_k=10, final_k=top_k_used)
+        chunks = agent.retrieve_and_rerank(
+            question_used, 
+            initial_k=10, 
+            final_k=top_k_used,
+            source_filters=sources_used
+        )
         if chunks:
             data = []
             for i, chunk in enumerate(chunks, 1):

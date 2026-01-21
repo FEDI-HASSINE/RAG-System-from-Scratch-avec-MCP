@@ -169,28 +169,65 @@ class OpenAIEmbedding(BaseEmbeddingModel):
                 )
         return self._client
     
-    def embed(self, text: str) -> np.ndarray:
-        """Embed a single text."""
+    def _call_with_retry(self, func, max_retries: int = 3, base_delay: float = 1.0):
+        """Call a function with exponential backoff retry."""
+        import time
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                return func()
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                
+                # Check if retryable error
+                is_retryable = any(x in error_str for x in [
+                    'rate limit', 'timeout', 'connection', '429', '500', '502', '503', '504'
+                ])
+                
+                if not is_retryable or attempt >= max_retries - 1:
+                    raise
+                
+                wait_time = base_delay * (2 ** attempt)  # Exponential backoff
+                print(f"⚠️  OpenAI API error (attempt {attempt + 1}/{max_retries}), retrying in {wait_time:.1f}s: {e}")
+                time.sleep(wait_time)
+        
+        raise last_error
+    
+    def embed(self, text: str, max_retries: int = 3) -> np.ndarray:
+        """Embed a single text with retry logic."""
         client = self._get_client()
-        response = client.embeddings.create(
-            model=self._model_name,
-            input=text
-        )
-        return np.array(response.data[0].embedding)
+        
+        def _do_embed():
+            response = client.embeddings.create(
+                model=self._model_name,
+                input=text,
+                timeout=30.0  # 30s timeout
+            )
+            return np.array(response.data[0].embedding)
+        
+        return self._call_with_retry(_do_embed, max_retries=max_retries)
     
     def embed_batch(self, texts: List[str], 
                     batch_size: int = 100,
-                    show_progress: bool = True) -> np.ndarray:
-        """Embed multiple texts with batching."""
+                    show_progress: bool = True,
+                    max_retries: int = 3) -> np.ndarray:
+        """Embed multiple texts with batching and retry logic."""
         client = self._get_client()
         all_embeddings = []
         
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            response = client.embeddings.create(
-                model=self._model_name,
-                input=batch
-            )
+            
+            def _do_batch_embed():
+                return client.embeddings.create(
+                    model=self._model_name,
+                    input=batch,
+                    timeout=60.0  # 60s timeout for batches
+                )
+            
+            response = self._call_with_retry(_do_batch_embed, max_retries=max_retries)
             batch_embeddings = [d.embedding for d in response.data]
             all_embeddings.extend(batch_embeddings)
             

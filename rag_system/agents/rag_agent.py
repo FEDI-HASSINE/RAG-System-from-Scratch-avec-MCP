@@ -183,6 +183,7 @@ class RAGAgent:
     def answer(self, 
                question: str,
                source_filter: Optional[str] = None,
+               source_filters: Optional[List[str]] = None,
                include_trace: Optional[bool] = None) -> RAGResponse:
         """
         Answer a question using RAG pipeline.
@@ -195,7 +196,8 @@ class RAGAgent:
         
         Args:
             question: User's question
-            source_filter: Optional filter for specific source
+            source_filter: Optional filter for specific source (single)
+            source_filters: Optional list of sources to restrict retrieval (if provided and non-empty)
             include_trace: Whether to include execution trace
             
         Returns:
@@ -215,10 +217,16 @@ class RAGAgent:
             # ========================================
             step_start = time.time()
             
+            # Normalize source filters
+            source_filters = [s for s in (source_filters or []) if s]
+            active_source_filter = source_filter or (source_filters[0] if len(source_filters) == 1 else None)
+
+            # Step 1: Retrieve
+            retrieve_start = time.time()
             retrieve_result = mcp.retrieve_chunks(
-                query=question,
+                question, 
                 top_k=self.config.initial_top_k,
-                source_filter=source_filter
+                source_filter=active_source_filter
             )
             
             step_duration = (time.time() - step_start) * 1000
@@ -233,6 +241,9 @@ class RAGAgent:
                 return self._error_response("Retrieval failed", retrieve_result.error, trace)
             
             chunks = retrieve_result.get("chunks", [])
+            if source_filters:
+                allowed_sources = set(source_filters)
+                chunks = [c for c in chunks if c.get("source") in allowed_sources]
             
             trace.add_step(RAGStep(
                 name="retrieve",
@@ -381,18 +392,25 @@ class RAGAgent:
     def retrieve_and_rerank(self,
                             question: str,
                             initial_k: int = 10,
-                            final_k: int = 5) -> List[Dict]:
+                            final_k: int = 5,
+                            source_filters: Optional[List[str]] = None) -> List[Dict]:
         """
         Retrieve and rerank without LLM generation.
         """
         mcp = self._get_mcp_client()
         
         # Retrieve
-        retrieve_result = mcp.retrieve_chunks(question, initial_k)
+        active_filters = [s for s in (source_filters or []) if s]
+        source_filter = active_filters[0] if len(active_filters) == 1 else None
+
+        retrieve_result = mcp.retrieve_chunks(question, initial_k, source_filter=source_filter)
         if not retrieve_result.success:
             return []
         
         chunks = retrieve_result.get("chunks", [])
+        if active_filters:
+            allowed_sources = set(active_filters)
+            chunks = [c for c in chunks if c.get("source") in allowed_sources]
         if not chunks:
             return []
         

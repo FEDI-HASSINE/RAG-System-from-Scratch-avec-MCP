@@ -151,6 +151,35 @@ class ServerStatus(BaseModel):
 server_start_time: Optional[datetime] = None
 
 
+def warmup_models():
+    """Pre-load embedding models to avoid cold start latency."""
+    try:
+        logger.info("🔥 Warming up embedding models...")
+        from embeddings.embedding_models import get_embedding_service
+        
+        # Load the default embedding model
+        embedding_service = get_embedding_service(
+            model_type="sentence-transformers",
+            model_name="all-MiniLM-L6-v2"
+        )
+        
+        # Run a test embedding to fully initialize
+        _ = embedding_service.embed("warmup test")
+        logger.info(f"✅ Embedding model ready: {embedding_service.model_name} (dim: {embedding_service.dimension})")
+        
+        # Also warm up cross-encoder if available
+        try:
+            from mcp_server.reranking_service import RerankingService
+            reranker = RerankingService()
+            reranker._load_model()
+            logger.info(f"✅ Cross-encoder ready: {reranker.model_name}")
+        except Exception as e:
+            logger.warning(f"⚠️  Cross-encoder warmup skipped: {e}")
+            
+    except Exception as e:
+        logger.warning(f"⚠️  Model warmup failed (will load on first request): {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
@@ -164,6 +193,12 @@ async def lifespan(app: FastAPI):
     # Initialize registry
     registry = get_registry()
     logger.info(f"📦 Loaded {len(registry)} tools: {registry.list_tools()}")
+    
+    # Warm up models to avoid cold start latency
+    warmup_models()
+    
+    logger.info("=" * 60)
+    logger.info("✅ Server ready to accept requests!")
     logger.info("=" * 60)
     
     yield
