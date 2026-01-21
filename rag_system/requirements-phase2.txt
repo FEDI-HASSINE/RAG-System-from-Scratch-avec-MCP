@@ -4,6 +4,7 @@
 sentence-transformers>=2.2.0  # Local embedding models (HuggingFace)
 faiss-cpu>=1.7.4              # Vector search index
 numpy>=1.24.0                 # Numerical operations
+pinecone>=8.0.0               # Managed vector database (optional)
 
 ## Optional Dependencies
 # openai>=1.0.0               # OpenAI embeddings API (cloud, paid)

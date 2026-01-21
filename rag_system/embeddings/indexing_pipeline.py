@@ -31,6 +31,7 @@ class IndexingConfig:
     
     # Output
     vector_store_dir: str = "vector_store"
+    vector_backend: str = "faiss"  # 'faiss' or 'pinecone'
     
     # Model settings
     model_type: str = "sentence-transformers"  # or 'openai'
@@ -39,6 +40,12 @@ class IndexingConfig:
     # Index settings
     index_type: str = "flat"  # 'flat' or 'ivf'
     metric: str = "l2"  # 'l2' or 'cosine'
+
+    # Pinecone settings (optional; fallback to env)
+    pinecone_index: Optional[str] = None
+    pinecone_namespace: Optional[str] = None
+    pinecone_cloud: str = "aws"
+    pinecone_region: str = "us-east-1"
     
     # Processing
     batch_size: int = 32
@@ -74,6 +81,13 @@ class IndexingPipeline:
         """Initialize the pipeline with configuration."""
         self.config = config or IndexingConfig()
         self.base_path = Path(os.path.dirname(os.path.abspath(__file__)))
+
+    def _backend(self) -> str:
+        """Return normalized backend name."""
+        env_backend = os.getenv("VECTOR_STORE_BACKEND")
+        if env_backend:
+            return env_backend.lower()
+        return (self.config.vector_backend or "faiss").lower()
     
     def run(self, 
             chunks_file: Optional[str] = None,
@@ -180,19 +194,44 @@ class IndexingPipeline:
                 processing_time=str(datetime.now() - start_time)
             )
         
-        # Step 4: Create FAISS index
-        print("\n📊 Step 4: Building FAISS index...")
+        # Step 4: Create vector store (FAISS or Pinecone)
+        backend = self._backend()
+        metric = self.config.metric
+        if backend == "pinecone" and metric == "l2":
+            metric = "euclidean"  # Pinecone naming
+        print(f"\n📊 Step 4: Building vector index ({backend})...")
         try:
-            vector_store = FAISSVectorStore(
-                dimension=embedding_service.dimension,
-                index_type=self.config.index_type,
-                metric=self.config.metric
-            )
-            vector_store.model_name = embedding_service.model_name
-            
-            # Add vectors with metadata
-            vector_store.add(vectors, chunks)
-            print(f"   ✅ Added {vector_store.size} vectors to index")
+            if backend == "pinecone":
+                from vector_store.pinecone_store import PineconeVectorStore
+                vector_store = PineconeVectorStore.from_env(
+                    dimension=embedding_service.dimension,
+                    metric=metric,
+                    index_name=self.config.pinecone_index,
+                    namespace=self.config.pinecone_namespace,
+                    cloud=self.config.pinecone_cloud,
+                    region=self.config.pinecone_region,
+                )
+                vector_store.model_name = embedding_service.model_name
+                vector_store.add(vectors, chunks)
+                index_path = f"pinecone://{vector_store.index_name}/{vector_store.namespace}"
+                metadata_path = index_path
+                print(f"   ✅ Upserted {len(vectors)} vectors to Pinecone index '{vector_store.index_name}' (ns: {vector_store.namespace})")
+            else:
+                vector_store = FAISSVectorStore(
+                    dimension=embedding_service.dimension,
+                    index_type=self.config.index_type,
+                    metric=self.config.metric
+                )
+                vector_store.model_name = embedding_service.model_name
+                vector_store.add(vectors, chunks)
+                print(f"   ✅ Added {vector_store.size} vectors to index")
+                index_path = output_dir_resolved / "index.faiss"
+                metadata_path = output_dir_resolved / "metadata.json"
+                # Save to disk (FAISS only)
+                output_dir_resolved.mkdir(parents=True, exist_ok=True)
+                vector_store.save(str(output_dir_resolved))
+                print(f"   ✅ Saved index to {index_path}")
+                print(f"   ✅ Saved metadata to {metadata_path}")
         except Exception as e:
             error = f"Failed to build index: {e}"
             print(f"   ❌ {error}")
@@ -207,20 +246,6 @@ class IndexingPipeline:
                 errors=errors,
                 processing_time=str(datetime.now() - start_time)
             )
-        
-        # Step 5: Save to disk
-        print("\n💾 Step 5: Saving vector store...")
-        index_path = output_dir_resolved / "index.faiss"
-        metadata_path = output_dir_resolved / "metadata.json"
-        try:
-            output_dir_resolved.mkdir(parents=True, exist_ok=True)
-            vector_store.save(str(output_dir_resolved))
-            print(f"   ✅ Saved index to {index_path}")
-            print(f"   ✅ Saved metadata to {metadata_path}")
-        except Exception as e:
-            error = f"Failed to save: {e}"
-            print(f"   ❌ {error}")
-            errors.append(error)
         
         # Calculate processing time
         end_time = datetime.now()
