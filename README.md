@@ -8,7 +8,7 @@ Un système **RAG (Retrieval-Augmented Generation)** complet, construit de zéro
 
 ## ✨ Fonctionnalités
 
-- 🔍 **Recherche sémantique** avec FAISS et SentenceTransformers
+- 🔍 **Recherche sémantique** avec Pinecone (FAISS en secours) et SentenceTransformers
 - 📊 **Reranking** avec Cross-Encoder pour une pertinence maximale
 - 🤖 **Agent RAG** orchestrant le pipeline complet
 - 🔌 **API MCP** unifiée pour tous les outils
@@ -22,23 +22,42 @@ Un système **RAG (Retrieval-Augmented Generation)** complet, construit de zéro
 ```bash
 git clone https://github.com/FEDI-HASSINE/RAG-System-from-Scratch-avec-MCP.git
 cd RAG-System-from-Scratch-avec-MCP
-pip install -r rag_system/mcp_server/requirements.txt
-pip install typer rich streamlit pandas matplotlib
+python -m venv .venv && source .venv/bin/activate
+pip install -r rag_system/requirements-phase2.txt  # inclut ingestion + Pinecone + Streamlit
 ```
 
-### 2. Démarrer le serveur MCP
+### 2. Variables d'environnement (Pinecone + LLM)
+```bash
+export PINECONE_API_KEY="..."
+export PINECONE_INDEX="rag-index"     # existant dans votre compte
+export PINECONE_NAMESPACE="demo"      # changez selon vos données
+export OPENAI_API_KEY="..."           # ou autre LLM compatible
+```
+
+### 3. Ingestion + indexation Pinecone
+```bash
+source .venv/bin/activate
+python rag_system/run_ingestion.py               # chunking (Chonkie activé si installé)
+python rag_system/run_indexing_pinecone.py       # envoie les embeddings vers Pinecone
+```
+
+> Notes :
+> - Chonkie est déjà installé dans l'environnement de démo ; si vous réinstallez ailleurs, installez-le en option (`pip install chonkie==1.5.2 --no-deps`) puis gardez numpy < 2 pour compatibilité torch CPU.
+> - Pour rafraîchir les données, rejouez simplement ingestion puis indexation ; le namespace Pinecone (`PINECONE_NAMESPACE`) permet de séparer vos ensembles de documents.
+
+### 4. Démarrer le serveur MCP
 ```bash
 cd rag_system/mcp_server
 uvicorn main:app --reload --port 8000
 ```
 
-### 3. Tester via CLI
+### 5. Tester via CLI (MCP client)
 ```bash
 cd rag_system/demo
 python rag_cli.py ask "What is system architecture?" --top-k 3
 ```
 
-### 4. Lancer l'interface web
+### 6. Lancer l'interface web
 ```bash
 cd rag_system/demo
 streamlit run app.py
@@ -52,7 +71,7 @@ RAG-System-from-Scratch-avec-MCP/
 └── rag_system/
     ├── data/              # Phase 1: Ingestion & chunking
     ├── embeddings/        # Phase 2: Vectorisation
-    ├── vector_store/      # Phase 2: Index FAISS
+    ├── vector_store/      # Phase 2: Index Pinecone (FAISS fallback)
     ├── mcp_server/        # Phase 5: API MCP
     │   └── tools/         # Phases 3-4: Outils RAG
     ├── agents/            # Phase 6: Agent RAG
@@ -68,7 +87,7 @@ Question
     ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │   Embed      │ ──▶ │   Retrieve   │ ──▶ │   Rerank     │
-│   (384 dims) │     │   (FAISS)    │     │ (CrossEnc)   │
+│   (384 dims) │     │ (Pinecone)   │     │ (CrossEnc)   │
 └──────────────┘     └──────────────┘     └──────────────┘
                                                 │
                                                 ▼
@@ -83,7 +102,7 @@ Question
 | Composant | Technologie |
 |-----------|-------------|
 | Embeddings | SentenceTransformers `all-MiniLM-L6-v2` |
-| Vector Store | FAISS |
+| Vector Store | Pinecone (`rag-index` / namespace configurable) — FAISS en secours |
 | Reranking | Cross-Encoder `ms-marco-MiniLM-L-6-v2` |
 | API | FastAPI + MCP Protocol |
 | LLM | OpenAI / Ollama / Mock |
