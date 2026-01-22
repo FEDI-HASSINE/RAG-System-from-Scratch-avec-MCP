@@ -152,7 +152,8 @@ with st.sidebar:
                     
                     ingestion_config = IngestionConfig(
                         input_dir=raw_docs_path,
-                        output_file=os.path.join(RAG_SYSTEM_DIR, "data", "chunks.json")
+                        output_file=os.path.join(RAG_SYSTEM_DIR, "data", "chunks.json"),
+                        use_chonkie=True  # Utilise Chonkie pour des chunks plus intelligents
                     )
                     ingestion = DataIngestionPipeline(ingestion_config)
                     ingestion_result = ingestion.run() 
@@ -290,7 +291,7 @@ if "last_response" in st.session_state:
                 """
                 **Étapes du pipeline RAG :**
                 1. **Embedding query** — Vectorisation de la question
-                2. **Retrieving top chunks** — Recherche dans FAISS
+                2. **Retrieving top chunks** — Recherche dans Pinecone
                 3. **Reranking** — Réordonnancement par Cross-Encoder
                 4. **Prompt injection** — Construction du prompt avec contexte
                 5. **LLM generation** — Génération de la réponse

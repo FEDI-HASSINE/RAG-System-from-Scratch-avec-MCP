@@ -18,8 +18,9 @@ Configuration can be provided via parameters or environment variables:
 
 import os
 import time
+import json
 import numpy as np
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Any
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -125,6 +126,35 @@ class PineconeVectorStore:
                 break
             time.sleep(1)
 
+    def _sanitize_metadata(self, meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Make metadata Pinecone-safe (no nested dicts/None/non-primitive).
+
+        Pinecone only accepts primitives or list of strings. We flatten/serialize
+        nested dicts and drop None to avoid 400 errors on upsert.
+        """
+        sanitized: Dict[str, Any] = {}
+        for k, v in meta.items():
+            if v is None:
+                continue
+            # Flatten nested dicts by JSON-serializing them
+            if isinstance(v, dict):
+                try:
+                    sanitized[k] = json.dumps(v, ensure_ascii=False)
+                except Exception:
+                    continue
+            # Allow list of strings only; otherwise stringify
+            elif isinstance(v, list):
+                if all(isinstance(x, str) for x in v):
+                    sanitized[k] = v
+                else:
+                    sanitized[k] = json.dumps(v, ensure_ascii=False)
+            # Primitives are fine
+            elif isinstance(v, (str, int, float, bool)):
+                sanitized[k] = v
+            else:
+                sanitized[k] = str(v)
+        return sanitized
+
     def add(self, vectors: np.ndarray, metadata_list: List[Dict], 
              batch_size: int = 100, max_retries: int = 3) -> List[str]:
         """Upsert vectors with metadata using batching and retry logic.
@@ -144,10 +174,11 @@ class PineconeVectorStore:
         for vec, meta in zip(vectors, metadata_list):
             chunk_id = meta.get("chunk_id") or str(uuid4())
             ids.append(chunk_id)
+            safe_meta = self._sanitize_metadata(meta)
             all_upserts.append({
                 "id": chunk_id,
                 "values": np.asarray(vec, dtype=float).tolist(),
-                "metadata": meta
+                "metadata": safe_meta
             })
         
         # Batch upsert with retry logic

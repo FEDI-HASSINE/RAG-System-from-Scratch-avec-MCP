@@ -30,7 +30,8 @@ def main():
         remove_urls=True,
         detect_headers=True,
         detect_lists=True,
-        validate_output=True
+        validate_output=True,
+        use_chonkie=True  # Active Chonkie par défaut (fallback silencieux si non installé)
     )
     
     # Create and run pipeline

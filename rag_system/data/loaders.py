@@ -50,7 +50,7 @@ class PDFLoader:
             file_type="pdf",
             content="\n\n".join(full_text),
             pages=pages,
-            metadata={"total_pages": len(pages)}
+            metadata={"total_pages": len(pages), "source_path": str(file_path)}
         )
 
 
@@ -80,7 +80,8 @@ class MarkdownLoader:
             file_type="markdown",
             content=clean_text,
             metadata={
-                "headers": [{"level": len(h[0]), "text": h[1]} for h in headers]
+                "headers": [{"level": len(h[0]), "text": h[1]} for h in headers],
+                "source_path": str(file_path)
             }
         )
     
@@ -132,7 +133,7 @@ class TextLoader:
             filename=os.path.basename(file_path),
             file_type="txt",
             content=content,
-            metadata={}
+            metadata={"source_path": str(file_path)}
         )
 
 

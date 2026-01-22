@@ -46,6 +46,9 @@ class IngestionConfig:
     
     # Validation
     validate_output: bool = True
+    
+    # Optional: activer Chonkie pour extraire des éléments riches (tables/images)
+    use_chonkie: bool = False
 
 
 @dataclass
@@ -91,6 +94,21 @@ class DataIngestionPipeline:
             overlap_tokens=self.config.overlap_tokens,
             token_method=self.config.token_method
         )
+        # Chonkie adapter (optionnel)
+        self._chonkie_adapter = None
+        if self.config.use_chonkie:
+            try:
+                from .chonkie_adapter import ChonkieAdapter
+                self._chonkie_adapter = ChonkieAdapter(
+                    max_tokens=self.config.max_tokens,
+                    overlap_tokens=self.config.overlap_tokens,
+                    token_method=self.config.token_method,
+                )
+                print("   🧩 Chonkie adapter activé")
+            except Exception as e:
+                print(f"   ⚠️ Impossible d'activer Chonkie: {e}")
+                print("   ▶️ Fallback sur le détecteur de structure interne.")
+                self._chonkie_adapter = None
     
     def run(self, 
             input_dir: str = None, 
@@ -210,7 +228,7 @@ class DataIngestionPipeline:
     
     def _process_document(self, doc: LoadedDocument, stats: Dict) -> List[Chunk]:
         """Process a single document through the pipeline."""
-        
+
         # Step 2: Clean text
         print(f"   🧹 Cleaning text...")
         cleaned_text, cleaning_stats = self.cleaner.clean(doc.content)
@@ -230,12 +248,12 @@ class DataIngestionPipeline:
         
         print(f"   📑 Found {len(sections)} sections")
         
-        # Step 4: Chunk
+        # Step 4: Chunk (try Chonkie first if activé)
         print(f"   ✂️  Chunking...")
-        
+
         # Use page information if available (for PDFs)
+        cleaned_pages = None
         if doc.pages:
-            # Clean each page individually
             cleaned_pages = []
             for page in doc.pages:
                 page_text, _ = self.cleaner.clean(page["text"])
@@ -243,21 +261,34 @@ class DataIngestionPipeline:
                     "page": page["page"],
                     "text": page_text
                 })
-            
-            chunks = self.chunker.chunk_document(
+
+        if self._chonkie_adapter is not None:
+            try:
+                chonkie_chunks = self._chonkie_adapter.process_document(
+                    text=cleaned_text,
+                    doc=doc,
+                    sections=sections,
+                    pages=cleaned_pages,
+                )
+                if chonkie_chunks:
+                    return chonkie_chunks
+                print("   ⚠️ Chonkie n'a retourné aucun chunk; fallback sur chunker interne.")
+            except Exception as e:
+                print(f"   ⚠️ Chonkie a échoué: {e}. Fallback sur chunker interne.")
+
+        # Fallback chunker interne
+        if cleaned_pages:
+            return self.chunker.chunk_document(
                 text=cleaned_text,
                 source=doc.filename,
                 pages=cleaned_pages,
                 sections=sections
             )
-        else:
-            chunks = self.chunker.chunk_document(
-                text=cleaned_text,
-                source=doc.filename,
-                sections=sections
-            )
-        
-        return chunks
+        return self.chunker.chunk_document(
+            text=cleaned_text,
+            source=doc.filename,
+            sections=sections
+        )
     
     def process_single_file(self, file_path: str) -> List[Chunk]:
         """
@@ -307,6 +338,11 @@ def main():
         action="store_true",
         help="Use tiktoken for accurate token counting"
     )
+    parser.add_argument(
+        "--use-chonkie",
+        action="store_true",
+        help="Use Chonkie to extract richer elements (tables/images) when available"
+    )
     
     args = parser.parse_args()
     
@@ -315,7 +351,8 @@ def main():
         output_file=args.output,
         max_tokens=args.max_tokens,
         overlap_tokens=args.overlap,
-        token_method="tiktoken" if args.tiktoken else "simple"
+        token_method="tiktoken" if args.tiktoken else "simple",
+        use_chonkie=args.use_chonkie
     )
     
     pipeline = DataIngestionPipeline(config)

@@ -1,0 +1,12 @@
+# Phase 1: Data Ingestion Requirements
+
+## Core Dependencies
+pypdf>=4.0.0           # PDF text extraction
+markdown-it-py>=3.0.0  # Markdown parsing
+beautifulsoup4>=4.12.0 # HTML/text cleaning
+tiktoken>=0.5.0        # OpenAI tokenizer (optional, for accurate token counting)
+
+## Optional Dependencies (for enhanced features)
+# pdfplumber>=0.10.0   # Alternative PDF extraction with table support
+# nltk>=3.8.0          # Natural language processing
+# spacy>=3.7.0         # Advanced NLP and entity detection
